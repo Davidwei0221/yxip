@@ -1,7 +1,8 @@
 2025-05更新
-每6小时自动抓取
-https://cf.vvhan.com/
-https://ip.164746.xyz
-的优选ip，形成ip.txt 
-还有js自动生成的https://cf.090227.xyz 和
-https://stock.hostmonit.com/CloudFlareYes
+每6小时自动从以下来源抓取优选IP，并整合到 `ip.txt` 文件中：
+- `https://ip.164746.xyz`
+- `https://api.uouin.com/cloudflare.html`
+- `https://cf.090227.xyz`
+- `https://cf.vvhan.com/`
+
+注意: `https://stock.hostmonit.com/CloudFlareYes` 由于需要JavaScript渲染，已从抓取列表中移除。

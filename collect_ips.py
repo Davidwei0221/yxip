@@ -3,42 +3,62 @@ from bs4 import BeautifulSoup
 import re
 import os
 
-# 目标URL列表
-urls = ['https://api.uouin.com/cloudflare.html', 
-        'https://ip.164746.xyz'
-        ]
+# A set to store unique IP addresses to avoid duplicates.
+unique_ips = set()
 
-# 正则表达式用于匹配IP地址
+# The list of URLs to scrape for IP addresses.
+# Notes on URLs:
+# - 'https://stock.hostmonit.com/CloudFlareYes' is excluded because it requires JavaScript to render.
+urls = [
+    'https://ip.164746.xyz',                     # Provides IPs in an HTML table
+    'https://api.uouin.com/cloudflare.html',    # Provides IPs in an HTML table
+    'https://cf.090227.xyz',                     # Provides IPs in plain text
+    'https://cf.vvhan.com/'                      # Provides IPs in plain text, requires a common User-Agent
+]
+
+# Regular expression to find IPv4 addresses.
 ip_pattern = r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
 
-# 检查ip.txt文件是否存在,如果存在则删除它
-if os.path.exists('ip.txt'):
-    os.remove('ip.txt')
+# Set a common user-agent to avoid being blocked by some sites.
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+}
 
-# 创建一个文件来存储IP地址
-with open('ip.txt', 'w') as file:
-    for url in urls:
-        # 发送HTTP请求获取网页内容
-        response = requests.get(url)
-        
-        # 使用BeautifulSoup解析HTML
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # 根据网站的不同结构找到包含IP地址的元素
-        if url == 'https://api.uouin.com/cloudflare.html':
-            elements = soup.find_all('tr')
-        elif url == 'https://ip.164746.xyz':
-            elements = soup.find_all('tr')
-        else:
-            elements = soup.find_all('li')
-        
-        # 遍历所有元素,查找IP地址
-        for element in elements:
-            element_text = element.get_text()
-            ip_matches = re.findall(ip_pattern, element_text)
-            
-            # 如果找到IP地址,则写入文件
+# Loop through each URL to fetch and parse IP addresses.
+for url in urls:
+    try:
+        print(f"Fetching IPs from {url}...")
+        response = requests.get(url, headers=headers, timeout=10)
+        # Raise an exception for bad status codes (4xx or 5xx).
+        response.raise_for_status()
+
+        # For plain text responses, we can find all IPs directly.
+        if url in ['https://cf.090227.xyz', 'https://cf.vvhan.com/']:
+            ip_matches = re.findall(ip_pattern, response.text)
             for ip in ip_matches:
-                file.write(ip + '\n')
+                unique_ips.add(ip)
+        # For HTML responses, we parse the table rows.
+        else:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            # The relevant IPs are in table rows for the HTML sites.
+            elements = soup.find_all('tr')
+            for element in elements:
+                element_text = element.get_text()
+                ip_matches = re.findall(ip_pattern, element_text)
+                for ip in ip_matches:
+                    unique_ips.add(ip)
 
-print('IP地址已保存到ip.txt文件中。')
+    except requests.exceptions.RequestException as e:
+        print(f"Could not fetch or read URL {url}. Error: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred while processing {url}. Error: {e}")
+
+# Write the collected unique IP addresses to ip.txt.
+# The file is opened in 'w' mode, so it's cleared on every run.
+try:
+    with open('ip.txt', 'w') as file:
+        for ip in sorted(list(unique_ips)): # Sorting for consistent output
+            file.write(ip + '\n')
+    print(f"\nSuccessfully saved {len(unique_ips)} unique IP addresses to ip.txt.")
+except IOError as e:
+    print(f"Error writing to file ip.txt. Error: {e}")
